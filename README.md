@@ -1,4 +1,4 @@
-# GCP IAM & CI/CD Bootstrap with Terraform
+# Terraform Configuration for GCP IAM with OIDC Federation for GitHub Actions CI/CD
 
 This project provides a robust foundation for managing Google Cloud Platform (GCP) Identity and Access Management (IAM) using Terraform. It is designed to implement best practices for security, including Workload Identity Federation (WIF) for GitHub Actions, eliminating the need for static JSON service account keys.
 
