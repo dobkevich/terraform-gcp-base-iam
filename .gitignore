@@ -1,23 +1,23 @@
-# Local .terraform directories
+# Terraform
 **/.terraform/*
-
-# .tfstate files
 *.tfstate
 *.tfstate.*
-
-# Crash log files
-crash.log
-crash.*.log
-
-# Exclude sensitive variables files
 *.tfvars
 *.tfvars.json
-
-# Ignore override files
 override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+.terraform.lock.hcl
+crash.log
+crash.*.log
+.terraformrc
+terraform.rc
 
-# Include template files (already present in the project)
-!iam_cicd.tf.template
+# Credentials
+.aws/
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
