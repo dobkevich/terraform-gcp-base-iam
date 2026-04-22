@@ -1,0 +1,43 @@
+# This file sets up Workload Identity Federation (WIF).
+# WIF allows external CI/CD (like GitHub Actions) to impersonate a GCP Service Account 
+# WITHOUT the need for insecure, static JSON keys.
+
+# 1. Create a Workload Identity Pool (a container for external identities)
+resource "google_iam_workload_identity_pool" "cicd_pool" {
+  workload_identity_pool_id = "cicd-pool"
+  display_name              = "CI/CD Identity Pool"
+  description               = "Identity pool for GitHub Actions or other CI/CD providers"
+}
+
+# 2. Create an Identity Pool Provider for GitHub
+resource "google_iam_workload_identity_pool_provider" "github_provider" {
+  workload_identity_pool_id          = google_iam_workload_identity_pool.cicd_pool.workload_identity_pool_id
+  workload_identity_pool_provider_id = "github-provider"
+  display_name                       = "GitHub Actions Provider"
+  
+  # Map GitHub JWT claims to GCP attributes
+  # "assertion.repository" contains "owner/repo"
+  attribute_mapping = {
+    "google.subject"             = "assertion.sub"
+    "attribute.repository"       = "assertion.repository"
+  }
+  
+  oidc {
+    issuer_uri = "https://token.actions.githubusercontent.com"
+  }
+}
+
+# 3. Allow your GitHub repository to impersonate the Project Admin SA
+# This grants the tokenCreator role to the specific GitHub repo.
+resource "google_service_account_iam_member" "cicd_impersonation" {
+  service_account_id = google_service_account.project_admin_sa.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  
+  # Only allow YOUR repository to assume this role
+  member = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.cicd_pool.name}/attribute.repository/${var.github_repository}"
+}
+
+# Output the provider name needed for GitHub Actions
+output "workload_identity_provider" {
+  value = google_iam_workload_identity_pool_provider.github_provider.name
+}

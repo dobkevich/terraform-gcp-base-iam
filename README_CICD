@@ -1,0 +1,77 @@
+GCP CI/CD CONFIGURATION GUIDE (WORKLOAD IDENTITY FEDERATION)
+============================================================
+
+Overview:
+---------
+Static JSON keys for Service Accounts may be disabled in a Google Cloud 
+Organization for security reasons (constraint: iam.disableServiceAccountKeyCreation).
+
+This project uses Workload Identity Federation (WIF) to allow GitHub Actions
+to securely access GCP resources without passwords or keys.
+
+Prerequisites:
+--------------
+1. A Google Cloud Project (ID: project-ec1d8aab-338c-4492-b14).
+2. The 'google' Terraform provider (v6.0 or higher).
+3. A GitHub repository where your CI/CD will run.
+
+Step 1: Infrastructure Configuration (Terraform)
+------------------------------------------------
+The file 'iam_cicd.tf.template' defines three critical components:
+1. Workload Identity Pool: A container for external identities.
+2. Workload Identity Provider: Configures trust between GCP and GitHub.
+3. IAM Binding: Grants the 'roles/iam.serviceAccountTokenCreator' role to your 
+   specific GitHub repository, allowing it to impersonate the Service Account.
+
+Rename this file to 'iam_cicd.tf'.
+
+Update 'variables.tf' with your GitHub repository path:
+variable "github_repository" {
+  default = "your-github-user/your-github-repo"
+}
+
+Step 2: Apply the Configuration
+-------------------------------
+Run the following commands to create the federation infrastructure:
+$ terraform init
+$ terraform apply
+
+Note the output 'workload_identity_provider'. It will look like:
+projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/cicd-pool/providers/github-provider
+
+Step 3: GitHub Actions Setup
+----------------------------
+In your GitHub repository, create a workflow file (e.g., .github/workflows/deploy.yml).
+Use the provided 'cicd_github_action.yaml' as a template.
+
+Crucial Job Settings:
+1. permissions:
+     id-token: write  # Required for requesting the JWT from GitHub
+     contents: read   # Required for checkout
+
+2. Authentication Step:
+   - uses: 'google-github-actions/auth@v2'
+     with:
+       workload_identity_provider: 'projects/YOUR_PROJECT_NUMBER/locations/global/workloadIdentityPools/cicd-pool/providers/github-provider'
+       service_account: 'project-admin-sa@project-ec1d8aab-338c-4492-b14.iam.gserviceaccount.com'
+
+How It Works:
+-------------
+1. GitHub generates a short-lived OIDC token for the job.
+2. GCP verifies this token against the Workload Identity Provider settings.
+3. If the repository name matches, GCP issues a temporary access token 
+   impersonating the 'project-admin-sa' Service Account.
+4. Subsequent steps (gcloud, terraform, gsutil) use this temporary token.
+
+Security Benefits:
+------------------
+* No secret keys stored in GitHub.
+* Access is automatically revoked when the CI/CD job finishes.
+* No maintenance of key rotation is required.
+
+Troubleshooting:
+----------------
+* ERROR 403 (Permission Denied): Ensure the 'github_repository' variable matches 
+  your GitHub path exactly (case-sensitive).
+* FAILED_PRECONDITION (Key creation): Do not try to run 'gcloud iam service-accounts 
+  keys create'. It will always fail due to organizational policy. Use WIF only.

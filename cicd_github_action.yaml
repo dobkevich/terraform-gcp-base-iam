@@ -1,0 +1,35 @@
+# Example GitHub Action Workflow using WIF (No keys needed!)
+name: Terraform Apply (GCP WIF)
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    
+    # Required for ID Token generation (important!)
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Authenticate to GCP using WIF
+      - id: 'auth'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          # Use the 'workload_identity_provider' output from Terraform
+          workload_identity_provider: 'projects/YOUR_PROJECT_NUMBER/locations/global/workloadIdentityPools/cicd-pool/providers/github-provider'
+          service_account: 'project-admin-sa@project-ec1d8aab-338c-4492-b14.iam.gserviceaccount.com'
+
+      # Now all subsequent gcloud or terraform commands are authenticated!
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v2'
+
+      - name: 'Terraform Plan'
+        run: |
+          terraform init
+          terraform plan
